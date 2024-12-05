@@ -99,7 +99,27 @@ export const handleBuySignal = async (trade) => {
 
             break;
 
-        case WEBHOOKS_FOR_BUY.GREEN_KEY:
+		case WEBHOOKS_FOR_BUY.GREEN_KEY:
+			const lastGKTrade = await TradingModel.findOne({ email }).sort({ createdAt: -1 }).exec();
+
+			if (lastGKTrade.webhookName !== WEBHOOKS_FOR_BUY.DIAMOND_BUY) break;
+
+			const unwantedGKWebhooks = [
+				WEBHOOKS_FOR_SELL.RED_BALL,
+				WEBHOOKS_FOR_SELL.WHITE_ARROW,
+				WEBHOOKS_FOR_SELL.BLUE_ARROW,
+			];
+
+			const unwantedGKWebhookExists = await TradingModel.findOne({
+				webhookName: { $in: unwantedGKWebhooks },
+				createdAt: { $gte: previous7PM },
+			});
+
+			if (lastGKTrade && !unwantedGKWebhookExists) {
+				await sendEmail(emailPayload);
+			}
+			break;
+
         case WEBHOOKS_FOR_BUY.GREEN_SURF:
             const diamondBuy = await TradingModel.findOne({
                 webhookName: WEBHOOKS_FOR_BUY.DIAMOND_BUY,
@@ -133,11 +153,10 @@ export const handleSellSignal = async (trade) => {
     const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
 
     switch (webhookName) {
-        case WEBHOOKS_FOR_SELL.WHITE_ARROW:
-            await sendEmail(emailPayload);
-            break;
 
+        case WEBHOOKS_FOR_SELL.WHITE_ARROW:
         case WEBHOOKS_FOR_SELL.BLUE_ARROW:
+        case WEBHOOKS_FOR_SELL.MEORT:
             await sendEmail(emailPayload);
             break;
 
@@ -167,10 +186,6 @@ export const handleSellSignal = async (trade) => {
             );
 
             if (!diamondBuys) await sendEmail(emailPayload);
-
-            break;
-        case WEBHOOKS_FOR_SELL.MEORT:
-            await sendEmail(emailPayload);
             break;
 
         default:
