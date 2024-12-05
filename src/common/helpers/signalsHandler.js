@@ -1,4 +1,4 @@
-import { WEBHOOKS_FOR_BUY, WEBHOOKS_FOR_SELL } from "../constants";
+import { WEBHOOKS_FOR_BUY, WEBHOOKS_FOR_SELL } from "../constants.js";
 import TradingModel from '../../models/trading.js'
 import { sendEmail } from "./sendEmail.js";
 
@@ -34,14 +34,16 @@ function getPrevious7PM(date) {
     return result;
 }
 
-export const handleBuySignal = async (webhookName) => {
+export const handleBuySignal = async (trade) => {
 
+    const { webhookName, email, alertType } = trade;
+    const emailPayload = {to: email, subject: alertType, text: 'have coinbase buy' };
     const previous10PM = getPrevious10PM(Date.now());
     const previous7PM = getPrevious7PM(Date.now());
 
     switch (webhookName) {
         case WEBHOOKS_FOR_BUY.GREEN_ARROW:
-            const lastTrade = TradingModel.findOne({ email })
+            const lastTrade = await TradingModel.findOne({ email })
                 .sort({ createdAt: -1 })
                 .exec();
 
@@ -58,9 +60,9 @@ export const handleBuySignal = async (webhookName) => {
                     }
                 );
 
-                if (!downArrows) sendEmail('have coinbase buy');
+                if (!downArrows) await sendEmail(emailPayload);
 
-                return;
+                break;
             }
 
             // get previous three signals 
@@ -68,8 +70,8 @@ export const handleBuySignal = async (webhookName) => {
 
             // Check if there's a green arrow in the last three signals
             if (lastThreeSignals.every(signal => signal.webhookName === WEBHOOKS_FOR_BUY.DIAMOND_BUY)) {
-                sendEmail('have coinbase');
-                return;
+                await sendEmail(emailPayload);
+                break;
             }
 
             break;
@@ -78,7 +80,7 @@ export const handleBuySignal = async (webhookName) => {
 
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
-            if (!(fourHoursAgo > previous10PM)) return;
+            if (!(fourHoursAgo > previous10PM)) break;
 
             // Get down arrows from previous 4 hours
             const downArrows = await TradingModel.findOne(
@@ -97,10 +99,10 @@ export const handleBuySignal = async (webhookName) => {
             // get any previous signals from green arrow between 10PM and the createdAt time of green arrow
             if (greenArrow) {
                 const previousGreenArrowSignal = await TradingModel.findOne({ createdAt: { $lt: greenArrow.createdAt, $gte: previous10PM } });
-                if (previousGreenArrowSignal) return
+                if (previousGreenArrowSignal) break
             }
 
-            if (!downArrows && greenArrow) sendEmail('have coinbase buy x ammount');
+                if (!downArrows && greenArrow) await sendEmail({...emailPayload, text: 'have coinbase buy x ammount' });
 
             break;
 
@@ -121,9 +123,8 @@ export const handleBuySignal = async (webhookName) => {
             });
 
             if (diamondBuy && !unwantedWebhookExists) {
-                sendEmail("have coinbase buy");
+                await sendEmail(emailPayload);
             }
-
 
             break;
 
@@ -132,21 +133,23 @@ export const handleBuySignal = async (webhookName) => {
     }
 
 }
-export const handleSellSignal = async (webhookName) => {
+export const handleSellSignal = async (trade) => {
 
+    const { webhookName, email, alertType } = trade;
+    const emailPayload = {to: email, subject: alertType, text: 'have coinbase sell' };
     const previous10PM = getPrevious10PM(Date.now());
 
     switch (webhookName) {
         case WEBHOOKS_FOR_SELL.WHITE_ARROW:
-            sendEmail('have coinbase sell');
+            await sendEmail(emailPayload);
             break;
 
         case WEBHOOKS_FOR_SELL.BLUE_ARROW:
-            sendEmail('have coinbase sell')
+            await sendEmail(emailPayload);
             break;
 
         case WEBHOOKS_FOR_SELL.RED_BALL:
-            sendEmail('adjust position');
+            await sendEmail({...emailPayload, text: 'adjust position' });
             break;
 
         case WEBHOOKS_FOR_SELL.RED_KEY:
@@ -158,7 +161,7 @@ export const handleSellSignal = async (webhookName) => {
                 }
             });
 
-            if (!redBall) return;
+            if (!redBall) break;
 
             const diamondBuys = await TradingModel.findOne(
                 {
@@ -170,11 +173,11 @@ export const handleSellSignal = async (webhookName) => {
                 }
             );
 
-            if (!diamondBuys) sendEmail('have coinbase sell');
+            if (!diamondBuys) await sendEmail(emailPayload);
 
             break;
         case WEBHOOKS_FOR_SELL.MEORT:
-            sendEmail('have coinbase sell');
+            await sendEmail(emailPayload);
             break;
 
         default:

@@ -17,3 +17,16 @@ export const TRADDING_TYPES = {
 	BUY: 'buy',
 	SELL: 'sell',
 };
+
+export const EMAIL_TEMPLET = `
+<html>
+<head>
+</head>
+<body>
+<p>
+Dear {email}<br><br>
+Kindly {tradeMsg}
+</p>
+</body>
+</html>
+`;

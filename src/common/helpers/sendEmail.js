@@ -1,5 +1,6 @@
 import sgMail from '@sendgrid/mail';
 import dotenv from 'dotenv';
+import { EMAIL_TEMPLET } from '../constants.js';
 
 dotenv.config();
 
@@ -16,7 +17,7 @@ sgMail.setApiKey(SENDGRID_API_KEY);
  * @param {string} html - HTML content (optional).
  */
 
-export const sendEmail = async (to, subject, text, html = '') => {
+export const sendEmail = async ({ to, subject, text, html = '' }) => {
 	const msg = {
 		to,
 		from: process.env.SENDER_EMAIL, // Must be a verified sender in SendGrid
@@ -24,6 +25,8 @@ export const sendEmail = async (to, subject, text, html = '') => {
 		text,
 		html,
 	};
+
+	msg.html = EMAIL_TEMPLET.replace('{email}', to)?.replace('{tradeMsg}', text);
 
 	try {
 		const response = await sgMail.send(msg);
