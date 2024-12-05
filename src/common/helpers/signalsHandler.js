@@ -2,44 +2,28 @@ import { WEBHOOKS_FOR_BUY, WEBHOOKS_FOR_SELL } from "../constants.js";
 import TradingModel from '../../models/trading.js'
 import { sendEmail } from "./sendEmail.js";
 
-function getPrevious10PM(date) {
-    // Create a new Date instance to avoid mutating the original
-    let result = new Date(date);
+const getTradingDayLimit = (timeLimit) => {
+    // Current date and time
+	let result = new Date();
 
-    // Check if the time is before 10 PM (22:00)
-    if (result.getHours() < 22) {
-        // Subtract one day
-        result.setDate(result.getDate() - 1);
-    }
+	// Check if the time is before time limit
+	if (result.getHours() < timeLimit) {
+		// Subtract one day
+		result.setDate(result.getDate() - 1);
+	}
 
-    // Set the time to 10 PM
-    result.setHours(22, 0, 0, 0); // 22:00:00.000
+	// Set the time by time limit
+	result.setHours(timeLimit, 0, 0, 0);
 
-    return result;
-}
-
-function getPrevious7PM(date) {
-    // Create a new Date instance to avoid mutating the original
-    let result = new Date(date);
-
-    // Check if the time is before 7 PM (19:00)
-    if (result.getHours() < 19) {
-        // Subtract one day
-        result.setDate(result.getDate() - 1);
-    }
-
-    // Set the time to 7 PM
-    result.setHours(19, 0, 0, 0); // 19:00:00.000
-
-    return result;
+	return result;
 }
 
 export const handleBuySignal = async (trade) => {
 
     const { webhookName, email, alertType } = trade;
     const emailPayload = {to: email, subject: alertType, text: 'have coinbase buy' };
-    const previous10PM = getPrevious10PM(Date.now());
-    const previous7PM = getPrevious7PM(Date.now());
+    const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
+    const previous7PM = getTradingDayLimit(19); // Get time limit by 7 PM (19:00)
 
     switch (webhookName) {
         case WEBHOOKS_FOR_BUY.GREEN_ARROW:
@@ -137,7 +121,7 @@ export const handleSellSignal = async (trade) => {
 
     const { webhookName, email, alertType } = trade;
     const emailPayload = {to: email, subject: alertType, text: 'have coinbase sell' };
-    const previous10PM = getPrevious10PM(Date.now());
+    const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
 
     switch (webhookName) {
         case WEBHOOKS_FOR_SELL.WHITE_ARROW:
