@@ -4,24 +4,24 @@ import { sendEmail } from "./sendEmail.js";
 
 const getTradingDayLimit = (timeLimit) => {
     // Current date and time
-	let result = new Date();
+    let result = new Date();
 
-	// Check if the time is before time limit
-	if (result.getHours() < timeLimit) {
-		// Subtract one day
-		result.setDate(result.getDate() - 1);
-	}
+    // Check if the time is before time limit
+    if (result.getHours() < timeLimit) {
+        // Subtract one day
+        result.setDate(result.getDate() - 1);
+    }
 
-	// Set the time by time limit
-	result.setHours(timeLimit, 0, 0, 0);
+    // Set the time by time limit
+    result.setHours(timeLimit, 0, 0, 0);
 
-	return result;
+    return result;
 }
 
 export const handleBuySignal = async (trade) => {
 
     const { webhookName, email, alertType } = trade;
-    const emailPayload = {to: email, subject: alertType, text: 'have coinbase buy' };
+    const emailPayload = { to: email, subject: alertType, text: 'have coinbase buy' };
     const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
     const previous7PM = getTradingDayLimit(19); // Get time limit by 7 PM (19:00)
 
@@ -61,6 +61,15 @@ export const handleBuySignal = async (trade) => {
             break;
 
         case WEBHOOKS_FOR_BUY.DIAMOND_BUY:
+            const lastDiamondTrade = await TradingModel.findOne({ email })
+                .sort({ createdAt: -1 })
+                .exec();
+
+            if (lastDiamondTrade.webhookName === WEBHOOKS_FOR_BUY.DIAMOND_BUY) {
+                sendEmail(emailPayload);
+                break;
+            }
+
 
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
@@ -86,7 +95,7 @@ export const handleBuySignal = async (trade) => {
                 if (previousGreenArrowSignal) break
             }
 
-                if (!downArrows && greenArrow) await sendEmail({...emailPayload, text: 'have coinbase buy x ammount' });
+            if (!downArrows && greenArrow) await sendEmail({ ...emailPayload, text: 'have coinbase buy x ammount' });
 
             break;
 
@@ -120,7 +129,7 @@ export const handleBuySignal = async (trade) => {
 export const handleSellSignal = async (trade) => {
 
     const { webhookName, email, alertType } = trade;
-    const emailPayload = {to: email, subject: alertType, text: 'have coinbase sell' };
+    const emailPayload = { to: email, subject: alertType, text: 'have coinbase sell' };
     const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
 
     switch (webhookName) {
@@ -133,7 +142,7 @@ export const handleSellSignal = async (trade) => {
             break;
 
         case WEBHOOKS_FOR_SELL.RED_BALL:
-            await sendEmail({...emailPayload, text: 'adjust position' });
+            await sendEmail({ ...emailPayload, text: 'adjust position' });
             break;
 
         case WEBHOOKS_FOR_SELL.RED_KEY:
@@ -166,5 +175,23 @@ export const handleSellSignal = async (trade) => {
 
         default:
             break;
+    }
+}
+
+// Will have different logics here for main buy/ green surfer/ greenn key
+export const handleSoldSignal = async () => {
+    const previous10PM = getTradingDayLimit(22)
+    const downWhiteArrows = await TradingModel.findOne(
+        {
+            webhookName: { $in: [WEBHOOKS_FOR_SELL.WHITE_ARROW] },
+            createdAt:
+            {
+                $gte: previous10PM
+            }
+        }
+    );
+
+    if (!downWhiteArrows) {
+        // rebuy logic will go here
     }
 }
