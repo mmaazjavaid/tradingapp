@@ -1,6 +1,6 @@
 import express from 'express';
 import { getTradings, createTrade } from '../controllers/trading.js';
-import Coinbase from '../../Coinbase/manager.js';
+import BinanceClient from '../../Binance/client.js';
 
 const router = express.Router();
 
@@ -11,9 +11,9 @@ router.get('/', getTradings);
 router.post('/create', createTrade);
 
 router.get('/test', async (req, res) => {
-	const coinbase = new Coinbase();
-    const accounts = await coinbase.getAccounts();
-	console.log("Accounts: ", accounts);
+	const binanceClient = new BinanceClient();
+	const account = await binanceClient.getAccountInfo();
+	console.log('Account: ', account);
 });
 
 export default router;
