@@ -22,7 +22,12 @@ connectDB();
 // Routes
 app.use('/api', routes);
 
-// Start server
-app.listen(PORT, () => {
-	console.log(`Server running on http://localhost:${PORT}`);
-});
+// If not in a serverless environment, start the server
+if (process.env.NODE_ENV !== 'PROD') {
+	app.listen(PORT, () => {
+		console.log(`Server running on http://localhost:${PORT}`);
+	});
+}
+
+// Export the app for serverless
+export default app;
