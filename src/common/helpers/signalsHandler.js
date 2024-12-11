@@ -20,8 +20,8 @@ const getTradingDayLimit = (timeLimit) => {
 
 export const handleBuySignal = async (trade) => {
 
-    const { webhookName, email, alertType } = trade;
-    const emailPayload = { to: email, subject: alertType, text: 'have coinbase buy' };
+    const { webhookName, email, alertType, ticker } = trade;
+    const emailPayload = { to: email, subject: alertType, text: `have coinbase buy ${ticker}` };
     const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
     const previous7PM = getTradingDayLimit(19); // Get time limit by 7 PM (19:00)
 
@@ -92,7 +92,7 @@ export const handleBuySignal = async (trade) => {
                 if (previousGreenArrowSignal) break
             }
 
-            if (!downArrows && greenArrow && greenArrow.createdAt > previous10PM) await sendEmail({ ...emailPayload, text: 'have coinbase buy x ammount' });
+            if (!downArrows && greenArrow && greenArrow.createdAt > previous10PM) await sendEmail({ ...emailPayload, text: `have coinbase buy x ammount of ${ticker}` });
 
             break;
 
@@ -145,8 +145,8 @@ export const handleBuySignal = async (trade) => {
 }
 export const handleSellSignal = async (trade) => {
 
-    const { webhookName, email, alertType } = trade;
-    const emailPayload = { to: email, subject: alertType, text: 'have coinbase sell' };
+    const { webhookName, email, alertType, ticker } = trade;
+    const emailPayload = { to: email, subject: alertType, text: `have coinbase sell ${ticker}` };
     const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
 
     switch (webhookName) {
@@ -158,7 +158,7 @@ export const handleSellSignal = async (trade) => {
             break;
 
         case WEBHOOKS_FOR_SELL.RED_BALL:
-            await sendEmail({ ...emailPayload, text: 'adjust position' });
+            await sendEmail({ ...emailPayload, text: `adjust position of ${ticker}` });
             break;
 
         case WEBHOOKS_FOR_SELL.RED_KEY:
