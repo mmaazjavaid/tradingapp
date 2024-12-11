@@ -31,7 +31,7 @@ export const handleBuySignal = async (trade) => {
                 .sort({ createdAt: -1 })
                 .exec();
 
-            if (lastTrade.webhookName === WEBHOOKS_FOR_BUY.GREEN_ARROW && lastTrade.createdAt > previous10PM) {
+            if (lastTrade?.webhookName === WEBHOOKS_FOR_BUY.GREEN_ARROW && lastTrade?.createdAt > previous10PM) {
                 const downArrows = await TradingModel.findOne(
                     {
                         webhookName: { $in: [WEBHOOKS_FOR_SELL.RED_BALL, WEBHOOKS_FOR_SELL.WHITE_ARROW, WEBHOOKS_FOR_SELL.BLUE_ARROW] },
@@ -53,7 +53,7 @@ export const handleBuySignal = async (trade) => {
             const lastThreeSignals = await TradingModel.find({ email }).sort({ createdAt: -1 }).limit(3);
 
             // Check if there's a green arrow in the last three signals
-            if (lastThreeSignals.every(signal => signal.webhookName === WEBHOOKS_FOR_BUY.DIAMOND_BUY)) {
+            if (lastThreeSignals?.length && lastThreeSignals.every(signal => signal.webhookName === WEBHOOKS_FOR_BUY.DIAMOND_BUY)) {
                 await sendEmail(emailPayload);
                 break;
             }
@@ -70,10 +70,7 @@ export const handleBuySignal = async (trade) => {
                 break;
             }
 
-
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-
-            if (!(fourHoursAgo > previous10PM)) break;
 
             // Get down arrows from previous 4 hours
             const downArrows = await TradingModel.findOne(
@@ -95,30 +92,30 @@ export const handleBuySignal = async (trade) => {
                 if (previousGreenArrowSignal) break
             }
 
-            if (!downArrows && greenArrow) await sendEmail({ ...emailPayload, text: 'have coinbase buy x ammount' });
+            if (!downArrows && greenArrow && greenArrow.createdAt > previous10PM) await sendEmail({ ...emailPayload, text: 'have coinbase buy x ammount' });
 
             break;
 
-		case WEBHOOKS_FOR_BUY.GREEN_KEY:
-			const lastGKTrade = await TradingModel.findOne({ email }).sort({ createdAt: -1 }).exec();
+        case WEBHOOKS_FOR_BUY.GREEN_KEY:
+            const lastGKTrade = await TradingModel.findOne({ email }).sort({ createdAt: -1 }).exec();
 
-			if (lastGKTrade.webhookName !== WEBHOOKS_FOR_BUY.DIAMOND_BUY) break;
+            if (lastGKTrade.webhookName !== WEBHOOKS_FOR_BUY.DIAMOND_BUY) break;
 
-			const unwantedGKWebhooks = [
-				WEBHOOKS_FOR_SELL.RED_BALL,
-				WEBHOOKS_FOR_SELL.WHITE_ARROW,
-				WEBHOOKS_FOR_SELL.BLUE_ARROW,
-			];
+            const unwantedGKWebhooks = [
+                WEBHOOKS_FOR_SELL.RED_BALL,
+                WEBHOOKS_FOR_SELL.WHITE_ARROW,
+                WEBHOOKS_FOR_SELL.BLUE_ARROW,
+            ];
 
-			const unwantedGKWebhookExists = await TradingModel.findOne({
-				webhookName: { $in: unwantedGKWebhooks },
-				createdAt: { $gte: previous7PM },
-			});
+            const unwantedGKWebhookExists = await TradingModel.findOne({
+                webhookName: { $in: unwantedGKWebhooks },
+                createdAt: { $gte: previous7PM },
+            });
 
-			if (lastGKTrade && !unwantedGKWebhookExists) {
-				await sendEmail(emailPayload);
-			}
-			break;
+            if (lastGKTrade && !unwantedGKWebhookExists) {
+                await sendEmail(emailPayload);
+            }
+            break;
 
         case WEBHOOKS_FOR_BUY.GREEN_SURF:
             const diamondBuy = await TradingModel.findOne({
