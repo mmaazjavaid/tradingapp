@@ -2,7 +2,7 @@ import { WEBHOOKS_FOR_BUY, WEBHOOKS_FOR_SELL } from "../constants.js";
 import TradingModel from '../../models/trading.js'
 import { sendEmail } from "./sendEmail.js";
 
-const getTradingDayLimit = (timeLimit) => {
+export const getTradingDayLimit = (timeLimit) => {
     // Current date and time
     let result = new Date();
 
@@ -24,6 +24,7 @@ export const handleBuySignal = async (trade) => {
     const emailPayload = { to: email, subject: alertType, text: `have coinbase buy ${ticker}` };
     const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
     const previous7PM = getTradingDayLimit(19); // Get time limit by 7 PM (19:00)
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
     switch (webhookName) {
         case WEBHOOKS_FOR_BUY.GREEN_ARROW:
@@ -61,16 +62,35 @@ export const handleBuySignal = async (trade) => {
             break;
 
         case WEBHOOKS_FOR_BUY.DIAMOND_BUY:
-            const lastDiamondTrade = await TradingModel.findOne({ email })
-                .sort({ createdAt: -1 })
-                .exec();
+            // const lastDiamondTrade = await TradingModel.findOne({ email })
+            //     .sort({ createdAt: -1 })
+            //     .exec();
 
-            if (lastDiamondTrade.webhookName === WEBHOOKS_FOR_BUY.DIAMOND_BUY) {
-                sendEmail(emailPayload);
-                break;
-            }
+            // if (lastDiamondTrade.webhookName === WEBHOOKS_FOR_BUY.DIAMOND_BUY) {
+            //     const buyingTrade = await TradingModel.findOne({
+            //         webhookName: {
+            //             $in: Object.values({
+            //                 GREEN_ARROW: 'green arrow',
+            //                 GREEN_KEY: 'green key',
+            //                 GREEN_SURF: 'green surf',
+            //             })
+            //         },
+            //         createdAt: { $gte: previous7PM },
+            //     }).sort({ createdAt: -1 }).exec();
 
-            const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+            //     if (buyingTrade.webhookName === WEBHOOKS_FOR_BUY.GREEN_ARROW && buyingTrade.createdAt < previous10PM) break;
+            //     if (buyingTrade.webhookName === WEBHOOKS_FOR_BUY.GREEN_KEY && buyingTrade.createdAt < previous7PM) break;
+            //     if (buyingTrade.webhookName === WEBHOOKS_FOR_BUY.GREEN_SURF && buyingTrade.createdAt < previous7PM) break;
+
+            //     //  Check for any white or blue arrows between rebuy and current state
+
+            //     // if no downs rebuy
+
+            //     // otherwise break
+
+            //     sendEmail(emailPayload);
+            //     break;
+            // }
 
             // Get down arrows from previous 4 hours
             const downArrows = await TradingModel.findOne(
@@ -92,40 +112,46 @@ export const handleBuySignal = async (trade) => {
                 if (previousGreenArrowSignal) break
             }
 
-            if (!downArrows && greenArrow && greenArrow.createdAt > previous10PM) await sendEmail({ ...emailPayload, text: `have coinbase buy x ammount of ${ticker}` });
-
+            if (!downArrows && greenArrow && greenArrow.createdAt > previous10PM) {
+                await sendEmail({ ...emailPayload, text: `have coinbase buy x ammount of ${ticker}` })
+                break;
+            };
             break;
 
         case WEBHOOKS_FOR_BUY.GREEN_KEY:
-            const lastGKTrade = await TradingModel.findOne({ email }).sort({ createdAt: -1 }).exec();
+            const lastGreenKeyTrade = await TradingModel.findOne({ webhookName: WEBHOOKS_FOR_BUY.GREEN_KEY }).sort({ createdAt: -1 }).exec();
+            const lastDiamondBuy = await TradingModel.findOne({
+                webhookName: WEBHOOKS_FOR_BUY.DIAMOND_BUY,
+            }).sort({ createdAt: -1 }).exec();
 
-            if (lastGKTrade.webhookName !== WEBHOOKS_FOR_BUY.DIAMOND_BUY) break;
+            if (lastGreenKeyTrade && lastDiamondBuy && !(lastDiamondBuy?.createdAt > lastGreenKeyTrade?.createdAt
+                && lastDiamondBuy?.createdAt > previous7PM &&
+                lastGreenKeyTrade?.createdAt < fourHoursAgo)) break;
 
-            const unwantedGKWebhooks = [
-                WEBHOOKS_FOR_SELL.RED_BALL,
-                WEBHOOKS_FOR_SELL.WHITE_ARROW,
-                WEBHOOKS_FOR_SELL.BLUE_ARROW,
-            ];
+            const unwantedGKWebhooks = [WEBHOOKS_FOR_SELL.RED_BALL];
 
             const unwantedGKWebhookExists = await TradingModel.findOne({
                 webhookName: { $in: unwantedGKWebhooks },
                 createdAt: { $gte: previous7PM },
             });
 
-            if (lastGKTrade && !unwantedGKWebhookExists) {
+            if (lastDiamondBuy && !unwantedGKWebhookExists) {
                 await sendEmail(emailPayload);
             }
+
             break;
 
         case WEBHOOKS_FOR_BUY.GREEN_SURF:
+            const lastSurfTrade = await TradingModel.findOne({ webhookName: WEBHOOKS_FOR_BUY.GREEN_SURF }).sort({ createdAt: -1 }).exec();
             const diamondBuy = await TradingModel.findOne({
                 webhookName: WEBHOOKS_FOR_BUY.DIAMOND_BUY,
-                createdAt: {
-                    $gte: previous7PM
-                }
-            });
+            }).sort({ createdAt: -1 }).exec();
 
-            const unwantedWebhooks = [WEBHOOKS_FOR_SELL.RED_BALL, WEBHOOKS_FOR_SELL.WHITE_ARROW, WEBHOOKS_FOR_SELL.BLUE_ARROW];
+            if (diamondBuy && lastSurfTrade && !(diamondBuy?.createdAt > lastSurfTrade?.createdAt
+                && diamondBuy?.createdAt > previous7PM &&
+                lastSurfTrade?.createdAt < fourHoursAgo)) break;
+
+            const unwantedWebhooks = [WEBHOOKS_FOR_SELL.RED_BALL];
 
             const unwantedWebhookExists = await TradingModel.findOne({
                 webhookName: { $in: unwantedWebhooks },
@@ -148,6 +174,8 @@ export const handleSellSignal = async (trade) => {
     const { webhookName, email, alertType, ticker } = trade;
     const emailPayload = { to: email, subject: alertType, text: `have coinbase sell ${ticker}` };
     const previous10PM = getTradingDayLimit(22); // Get time limit by 10 PM (22:00)
+    const previous7PM = getTradingDayLimit(19); // Get time limit by 7 PM (19:00)
+
 
     switch (webhookName) {
 
